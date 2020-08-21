@@ -1,154 +1,66 @@
-<p align="center">
-  <br>
-  <b>创造不息，交付不止</b>
-  <br>
-  <a href="https://www.yousails.com">
-    <img src="https://yousails.com/banners/brand.png" width=350>
-  </a>
-</p>
 
 ![group](https://cloud.githubusercontent.com/assets/324764/18408949/02d3cb2a-7770-11e6-96e2-54bbcfbfa1d1.png)
 
-## Intro
+## 简介
 
-This is a shell script for setting up Laravel Production environment on Ubuntu 14.04 system （ [ for Ubuntu 16](https://github.com/summerblue/laravel-ubuntu-init/blob/master/deploy-16.sh) ).
+适用于 Ubuntu 16.04 的 LNMP 安装脚本，并设置了国内镜像加速。
 
-> [中文文档](https://phphub.org/topics/2814)
+请确保所有命令都以 root 账户执行，如果登录账户不是 root，则需要执行 `sudo -H -s` 切换为 root 账户后再下载安装。
 
-## Software list
+## 软件列表
 
-* Ubuntu 14.04 / [Ubuntu 16 请使用这个脚本](https://github.com/summerblue/laravel-ubuntu-init/blob/master/deploy-16.sh)
 * Git
-* PHP 7.1
+* PHP 7.4
 * Nginx
 * MySQL
 * Sqlite3
 * Composer
-* Node 6 (With Yarn, PM2, Bower, Grunt, and Gulp)
+* Nodejs 10
+* Yarn
 * Redis
-* Memcached
 * Beanstalkd
+* Memcached
 
-## Installation
+## 可选软件列表
 
-1). Pull down the script
+以下软件需手动执行安装脚本：
 
-Ubuntu 16.04 + PHP 7.2
+* Elasticsearch：`./16.04/install_elasticsearch.sh`，默认为 6.x，如果要安装 7.x 则执行 `./16.04/install_elasticsearch.sh 7`
 
-```
-wget https://raw.githubusercontent.com/summerblue/laravel-ubuntu-init/master/deploy-16-72.sh -O deploy.sh
-chmod +x deploy.sh
-```
-
-My Ubuntu 16.04
+## 安装步骤
 
 ```
-wget https://raw.githubusercontent.com/summerblue/laravel-ubuntu-init/master/deploy-16.sh -O deploy.sh
-chmod +x deploy.sh
+wget -qO- https://raw.githubusercontent.com/summerblue/laravel-ubuntu-init/master/download.sh - | bash
 ```
 
-Ubuntu 14.04
+此脚本会将安装脚本下载到当前用户的 Home 目录下的 `laravel-ubuntu-init` 目录并自动执行安装脚本，在安装结束之后会在屏幕上输出 Mysql root 账号的密码，请妥善保存。
+
+如果当前不是 root 账户则不会自动安装，需要切换到 root 账户后执行 `./16.04/install.sh`。
+
+## 日常使用
+
+### 1. 新增 Nginx 站点
 
 ```
-wget https://raw.githubusercontent.com/summerblue/laravel-ubuntu-init/master/deploy.sh
-chmod +x deploy.sh
+./16.04/nginx_add_site.sh
 ```
 
+会提示输入站点名称（只能是英文、数字、`-` 和 `_`）、域名（多个域名用空格隔开），确认无误后会创建对应的 Nginx 配置并重启 Nginx。
 
-2). Config MySQL password
-
-`vi deploy.sh` edit your password:
-
-```
-# Configure
-MYSQL_ROOT_PASSWORD="{{--Your Password--}}"
-MYSQL_NORMAL_USER="estuser"
-MYSQL_NORMAL_USER_PASSWORD="{{--Your Password--}}"
-```
-
-3). Start install
-
-Run the shell script:
+### 2. 新增 Mysql 用户、数据库
 
 ```
-./deploy.sh
+./16.04/mysql_add_user.sh
 ```
 
-> Note: You must run as `root`.
+会提示输入 root 密码，如果错误将无法继续。输入需要创建的 Mysql 用户名，以及确认是否需要创建对应用户名的数据库。
 
-It will finish installation with this message:
+创建完毕之后会将新用户的密码输出到屏幕上，请妥善保存。
 
-```
---
---
-It's Done.
-Mysql Root Password: xxx你的密码xxx
-Mysql Normal User: estuser
-Mysql Normal User Password: xxx你的密码xxx
---
---
-```
+### 3. 以 www-data 身份执行命令
 
-## After installation
-
-### 1. Web root permission
-
-Nginx using `www` user, in order to have a correct permission, you should change the owner of the directory:
+本项目提供了一个 `sudowww` 的 `alias`，当需要以 `www-data` 用户身份执行命令时（如 `git clone 项目`、`php artisan config:cache` 等），可以直接在命令前加上 `sudowww`，同时在原命令两端加上单引号，如：
 
 ```
-cd /data/www/{YOU PROJECT FOLDER NAME}
-chown www:www -R ./
+sudowww 'php artisan config:cache'
 ```
-
-### 2. Add a site
-
-Here is a Nginx config file template for Laravel Project, you should put it at `/etc/nginx/sites-enabled` folder.
-
-For example `/etc/nginx/sites-enabled/phphub.org`:
-
-```
-server {
-    listen 80;
-    server_name {{---YOU-DOMAIN-NAME---}};
-    root "{{---YOU-PROJECT-FOLDER---}}";
-
-    index index.html index.htm index.php;
-
-    charset utf-8;
-
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
-
-    location = /favicon.ico { access_log off; log_not_found off; }
-    location = /robots.txt  { access_log off; log_not_found off; }
-
-    access_log /data/log/nginx/{{---YOU-PROJECT-NAME---}}-access.log;
-    error_log  /data/log/nginx/{{---YOU-PROJECT-NAME---}}-error.log error;
-
-    sendfile off;
-
-    client_max_body_size 100m;
-
-    include fastcgi.conf;
-
-    location ~ /\.ht {
-        deny all;
-    }
-
-    location ~ \.php$ {
-        fastcgi_pass   127.0.0.1:9000;
-        fastcgi_index  index.php;
-        fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
-        include        fastcgi_params;
-    }
-}
-```
-
-Restart Nginx when you done:
-
-```
-service nginx restart
-```
-
-
